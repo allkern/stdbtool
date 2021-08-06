@@ -30,3 +30,12 @@
 *.exe
 *.out
 *.app
+
+# Generated filesystem
+fffe0000/
+
+# Test soundtrack
+test/
+
+# VS Code files
+.vscode/
