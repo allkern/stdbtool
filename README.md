@@ -6,11 +6,11 @@ This project is at an extremely early development stage, it is barely functional
 The issues tab is open for you to slather me with things to fix or add!
 
 # Usage
-The tool needs a name for your soundtrack, and a folder containing the songs (in WMA format) you would like to have in it.
+The tool needs a name for your soundtrack, and a folder containing the songs (**in WMA format**) you would like to have in it.
 
 As of now, there isn't a CLI, let alone a GUI, so, changing input directories and soundtrack names must be done in source.
 
-Otherwise, just put your WMA (music) files in a folder named `test-soundtrack`. The name of your soundtrack will be `test`.
+Otherwise, just put your WMA music files in a folder named `test-soundtrack`. The name of your soundtrack will be `test`.
 
 ## Output
 The tool generates a filesystem in the following structure:
@@ -51,3 +51,11 @@ The process should be the same as in xemu, setup an FTP server on your Xbox, con
 This is the first iteration of this tool, expect things to break. However, issues are actively being investigated, here is a list of known issues:
 - The tool will not generate more than one soundtrack
 - A lot of songs don't get recognized by the Xbox
+
+# Building
+Thankfully, this is simple enough using a C++17-compatible compiler.
+```
+git clone https://github.com/Lycoder/stdbtool
+cd stdbtool
+c++ main.cpp -o main -std=c++17
+```
