@@ -59,3 +59,5 @@ git clone https://github.com/Lycoder/stdbtool
 cd stdbtool
 c++ main.cpp -o main -std=c++17
 ```
+
+I try to comment the code as much as possible because I haven't been able to find a lot of documentation on this format, my aim is to make this code good enough to serve as a reference or documentation.
