@@ -6,7 +6,7 @@ This project is at an extremely early development stage, it is barely functional
 The issues tab is open for you to slather me with things to fix or add!
 
 # Usage
-The tool needs a name for your soundtrack, and a folder containing the songs you would like to have in it.
+The tool needs a name for your soundtrack, and a folder containing the songs (in WMA format) you would like to have in it.
 
 As of now, there isn't a CLI, let alone a GUI, so, changing input directories and soundtrack names must be done in source.
 
