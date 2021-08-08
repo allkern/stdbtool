@@ -8,45 +8,9 @@
 #include <vector>
 #include <cmath>
 
+#include "structs.hpp"
+
 namespace stdb {
-    struct header_t {
-        int32_t magic = 0x1,
-                num_soundtracks,
-                next_soundtrack_id,
-                soundtrack_id[100],
-                next_song_id;
-
-        char pad[96];
-    } header;
-
-    struct soundtrack_t {
-        int32_t magic = 0x00021371,
-                id,
-                num_song_groups,
-                song_group_ids,
-                total_time_ms;
-
-        // Hack? Not sure how the soundtrack name is stored.
-        // I've found that these always (?) start at offset
-        // +0x160, a padding of this size will accomplish
-        // this.
-        char pad[0x14a];
-
-        wchar_t name[80];
-    } soundtrack[100];
-
-    struct group_t {
-        int32_t magic = 0x00031073,
-                soundtrack_id,
-                id,
-                padding,
-                song_id[6],
-                song_time_ms[6];
-        wchar_t song_name[384];
-        
-        char pad[64];
-    };
-
     std::vector <group_t> groups;
 
     int group_id = 0;
@@ -78,15 +42,12 @@ namespace stdb {
         header.soundtrack_id[id] = id;
 
         // Fill in soundtrack info
+        soundtrack[id].magic = 0x00021371;
         soundtrack[id].id = id;
         //soundtrack[id].total_time_ms = 0; // Retrieve this info from WMA files
-        //soundtrack[id].song_group_ids = 0; // Not needed?
 
         // Set name
-        int idx = 0;
-
-        while (name[idx] != L'\0')
-            soundtrack[id].name[idx] = name[idx++];
+        std::memcpy(&soundtrack[id].name[0], &name[0], name.size() * sizeof(wchar_t));
 
         // Create soundtrack directory
         std::string dir = "fffe0000/music/" + get_zero_padded_string(id, 4);
@@ -98,8 +59,9 @@ namespace stdb {
         if (!folder.size())
             folder = std::filesystem::path(name).string();
 
-        // Create groups based on amount of songs in this soundtrack
+        // Create groups based on the amount of songs in this soundtrack
         std::vector <group_t> st_groups;
+
         int count = 0;
 
         for (const auto& entry : std::filesystem::directory_iterator(folder))
@@ -109,26 +71,33 @@ namespace stdb {
         // song counts
         st_groups.resize(std::ceil((double)count / 6));
 
-        soundtrack[id].num_song_groups = st_groups.size();
+        // numSongGroups as described in xboxdevwiki actually
+        // contains the amount of tracks
+        soundtrack[id].num_songs = count;
 
         for (group_t& g : st_groups) {
+            soundtrack[id].song_group_ids[group_id] = group_id;
             g.id = group_id++;
             g.soundtrack_id = id;
         }
 
         // Copy songs to the final filesystem and rename them accordingly
         for (const auto& song : std::filesystem::directory_iterator(folder)) {
-            std::filesystem::copy(song.path(), dir + "/" + get_zero_padded_string(song_id++, 8) + ".wma");
+            std::string zpsid = get_zero_padded_string(song_id++, 8);
+            std::filesystem::copy(song.path(), dir + "/" + zpsid + ".wma");
 
-            int idx = std::ceil((double)song_id / 6) - 1;
+            int idx = std::ceil((double)song_id / 6) - 1,
+                group_idx = (song_id - 1) % 6;
 
             group_t& g = st_groups.at(idx);
 
-            g.song_id[(song_id - 1) % 6] = song_id - 1;
+            // Set song ID (BCD-like?)
+            g.song_id[group_idx] = std::stoi(zpsid, nullptr, 16);
 
+            // Copy song name
             std::wstring song_name = L"Track " + std::to_wstring(song_id);
 
-            std::memcpy(&g.song_name[((song_id - 1) % 6) * 32], song_name.c_str(), song_name.size() * sizeof(wchar_t));
+            std::memcpy(&g.song_name[group_idx * 32], song_name.c_str(), song_name.size() * sizeof(wchar_t));
         }
 
         for (group_t& g : st_groups)
