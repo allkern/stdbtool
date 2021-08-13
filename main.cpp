@@ -8,7 +8,7 @@ int main(int argc, char* argv[]) {
         name = std::wstring(&argv[1][0], &argv[1][sizeof(argv[1])]);
         path = argv[2];
     }
-    stdb::init();
-    stdb::create_soundtrack(name, path);
-    stdb::write();
+    stdb a = stdb();
+    a.create_soundtrack(name, path);
+    a.write();
 }
