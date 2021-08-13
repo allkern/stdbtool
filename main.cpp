@@ -1,7 +1,14 @@
 #include "stdb.hpp"
+#include <string>
 
-int main() {
-    stdb::init();
-    stdb::create_soundtrack(L"test", "test");
-    stdb::write();
+int main(int argc, char* argv[]) {
+    std::wstring name = L"test";
+    std::string path = "test";
+    if (argc >= 2) {
+        name = std::wstring(&argv[1][0], &argv[1][sizeof(argv[1])]);
+        path = argv[2];
+    }
+    stdb a = stdb();
+    a.create_soundtrack(name, path);
+    a.write();
 }
