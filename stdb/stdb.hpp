@@ -1,3 +1,5 @@
+#pragma once
+
 #include <filesystem>
 #include <iostream>
 #include <fstream>
@@ -8,12 +10,14 @@
 #include <vector>
 #include <cmath>
 
+#include "../log.hpp"
+
 #include "structs.hpp"
 
 namespace stdb {
-    std::vector <group_t> groups;
+    std::vector <group_t> global_groups;
 
-    int group_id = 0;
+    int global_group_id = 0;
 
     std::string get_zero_padded_string(int n, int w = 4) {
         std::ostringstream ss;
@@ -27,14 +31,12 @@ namespace stdb {
         if (std::filesystem::exists("fffe0000"))
             std::filesystem::remove_all("fffe0000");
 
-        bool r = std::filesystem::create_directory("fffe0000");
-
-        return r && std::filesystem::create_directory("fffe0000/music");
+        return std::filesystem::create_directories("fffe0000/music/0000");
     }
 
-    int song_id = 0;
+    int global_song_id = 0;
 
-    void create_soundtrack(std::wstring name, std::string folder = "") {
+    void create_soundtrack(std::wstring name, std::string folder = "", bool create_filesystem = true) {
         // Get current soundtrack ID and increment
         int32_t id = header.num_soundtracks++;
 
@@ -42,17 +44,26 @@ namespace stdb {
         header.soundtrack_id[id] = id;
 
         // Fill in soundtrack info
-        soundtrack[id].magic = 0x00021371;
+        soundtrack[id].magic = STDB_SOUNDTRACK_MAGIC;
         soundtrack[id].id = id;
         //soundtrack[id].total_time_ms = 0; // Retrieve this info from WMA files
 
-        // Set name
+        // Copy name to soundtrack
         std::memcpy(&soundtrack[id].name[0], &name[0], name.size() * sizeof(wchar_t));
 
         // Create soundtrack directory
-        std::string dir = "fffe0000/music/" + get_zero_padded_string(id, 4);
+        //
+        // To-do: Check this with different ST.DB configurations:
+        // 
+        // Apparently, the Xbox will look for songs with IDs only
+        // on the first soundtrack directory (aka 0000).
+        // So, creating additional soundtrack directories (0001, 0002, etc.)
+        // isn't needed.
 
-        std::filesystem::create_directory(dir);
+        // std::string dir = "fffe0000/music/" + get_zero_padded_string(id, 4);
+
+        // if (create_filesystem)
+        //     std::filesystem::create_directory(dir);
 
         // If a folder name wasn't specified, use the soundtrack
         // name instead
@@ -60,7 +71,7 @@ namespace stdb {
             folder = std::filesystem::path(name).string();
 
         // Create groups based on the amount of songs in this soundtrack
-        std::vector <group_t> st_groups;
+        std::vector <group_t> groups;
 
         int count = 0;
 
@@ -69,42 +80,60 @@ namespace stdb {
 
         // Create ceil(n/6) groups to allocate for non multiple of 6
         // song counts
-        st_groups.resize(std::ceil((double)count / 6));
+        groups.resize(std::ceil((double)count / 6));
 
         // numSongGroups as described in xboxdevwiki actually
         // contains the amount of tracks
         soundtrack[id].num_songs = count;
 
-        for (group_t& g : st_groups) {
-            soundtrack[id].song_group_ids[group_id] = group_id;
-            g.id = group_id++;
-            g.soundtrack_id = id;
+        // Fill in general information about the generated
+        // groups
+        {
+            int group_id = 0;
+
+            for (group_t& group : groups) {
+                soundtrack[id].song_group_ids[group_id++] = global_group_id;
+                group.id = global_group_id++;
+                group.soundtrack_id = id;
+            }
         }
 
-        // Copy songs to the final filesystem and rename them accordingly
-        for (const auto& song : std::filesystem::directory_iterator(folder)) {
-            std::string zpsid = get_zero_padded_string(song_id++, 8);
-            std::filesystem::copy(song.path(), dir + "/" + zpsid + ".wma");
+        // Copy songs to 0000, set metadata
+        {
+            int id = 0;
 
-            int idx = std::ceil((double)song_id / 6) - 1,
-                group_idx = (song_id - 1) % 6;
+            for (const auto& song : std::filesystem::directory_iterator(folder)) {
+                // Generate the 8-digit zero-padded
+                std::string zpsid = get_zero_padded_string(global_song_id++, 8);
 
-            group_t& g = st_groups.at(idx);
+                if (create_filesystem)
+                    std::filesystem::copy(song.path(), "fffe0000/music/0000/" + zpsid + ".wma");
+                
+                // Calculate group and song (inside group) indexes
+                int group_index = std::ceil((double)(id + 1) / 6) - 1,
+                    song_index = id % 6;
 
-            // Set song ID (BCD-like?)
-            g.song_id[group_idx] = std::stoi(zpsid, nullptr, 16);
+                group_t& group = groups[group_index];
 
-            // Copy song name
-            std::wstring song_name = L"Track " + std::to_wstring(song_id);
+                // Set song ID
+                group.song_id[song_index] = std::stoi(zpsid, nullptr, 16);
 
-            std::memcpy(&g.song_name[group_idx * 32], song_name.c_str(), song_name.size() * sizeof(wchar_t));
+                // Set track name
+                std::wstring song_name = L"Track " + std::to_wstring(id + 1);
+
+                std::memcpy(&group.song_name[song_index * 32], song_name.c_str(), song_name.size() * sizeof(wchar_t));
+
+                // Increment song ID
+                id++;
+            }
         }
 
-        for (group_t& g : st_groups)
-            groups.push_back(g);
+        // Push generated groups
+        for (group_t& group : groups)
+            global_groups.push_back(group);
     }
 
-    void write() {
+    size_t write() {
         std::ofstream f("fffe0000/music/ST.DB", std::ios::binary);
 
         f.write((char*)&header, sizeof(header_t));
@@ -112,6 +141,8 @@ namespace stdb {
         for (int i = 0; i < 100; i++)
             f.write((char*)&soundtrack[i], sizeof(soundtrack_t));
 
-        f.write((char*)groups.data(), groups.size() * sizeof(group_t));
+        f.write((char*)global_groups.data(), global_groups.size() * sizeof(group_t));
+
+        return f.tellp();
     }
 }
