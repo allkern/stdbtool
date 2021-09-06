@@ -1,31 +1,32 @@
 # stdbtool
 A tool that generates ST.DB files and their corresponding file structures for the Xbox dashboard's music menu
 
-This project is at an extremely early development stage, it is barely functional.
-
-The issues tab is open for you to slather me with things to fix or add!
-
 # Usage
-The tool needs a name for your soundtrack, and a folder containing the songs (**in WMA format**) you would like to have in it.
+`stdbtool <options> <input>`
 
-As of now, there isn't a CLI, let alone a GUI, so, changing input directories and soundtrack names must be done in source.
+| Setting | Effect |
+| ------------- | ------------- |
+| `-a` | Use all folders in the current directory as input (ignoring `fffe0000`) |
+| `-c` | Cleanup directories (delete `fffe0000`) |
+| `-s` | Output `ST.DB` only, don't generate a filesystem |
+| `-o <names>` | Specify soundtrack names for every input folder |
 
-Otherwise, just put your WMA music files in a folder named `test-soundtrack`. The name of your soundtrack will be `test`.
 
-## Output
+## Details
+ - Using `-a` will ignore folders specified as input
+ - Using `-c` will only cleanup directories, nothing else
+ - Output names specified with `-o` are mapped one-to-one with input folders, for example `stdbtool A B C -o X Y`; In this case, the soundtrack generated from folder `A` will be named `X`, `B` will be named `Y`. And because only two output names were specified, the soundtrack generated from `C` will be named `C`.
+
+# Output
 The tool generates a filesystem in the following structure:
 ```
 fffe0000/
-└── music
-    ├── 0000
+└── music/
+    ├── 0000/
     │   ├── 00000000.wma
     │   ├── 00000001.wma
-        . . .
-    ├── 0001
-    │   ├── 00000000.wma
-    │   ├── 00000001.wma
-    |   . . .
-    . . .
+    |        . . .
+    |   └── nnnnnnnn.wma
     └── ST.DB
 ```
 
@@ -47,17 +48,12 @@ Cxbx-R has its filesystem exposed to the OS, no need to setup an FTP server, jus
 ### Real Xbox
 The process should be the same as in xemu, setup an FTP server on your Xbox, connect to it, and copy the generated `fffe0000` folder to `/E/TDATA/`.
 
-# Known issues
-This is the first iteration of this tool, expect things to break. However, issues are actively being investigated, here is a list of known issues:
-- The tool will not generate more than one soundtrack
-- A lot of songs don't get recognized by the Xbox
-
 # Building
 Thankfully, this is simple enough using a C++17-compatible compiler.
 ```
 git clone https://github.com/Lycoder/stdbtool
 cd stdbtool
-c++ main.cpp -o main -std=c++17
+c++ main.cpp -o main -std=c++17 -Istdb
 ```
 
-I try to comment the code as much as possible because I haven't been able to find a lot of documentation on this format, my aim is to make this code good enough to serve as a reference or documentation.
+I'm trying to comment the code as much as possible because I haven't been able to find a lot of documentation on this format, I'm aiming to make this code good enough to serve as a reference or documentation.
